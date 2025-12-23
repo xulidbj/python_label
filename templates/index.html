@@ -1193,43 +1193,45 @@
 
         // 显示批量结果
         function showBatchResult(result, container) {
-            const results = result.data.results || result.data.files || [];
-            const errors = result.data.errors || [];
-            const stats = result.data.statistics || { total: results.length, success: 0, failed: errors.length };
+            // 统一获取处理后的文件列表（优先取files，兼容results）
+            const processedFiles = result.data?.files || result.data?.results || [];
+            const errors = result.data?.errors || [];
+
+            // 重新计算统计数据（基于processed_url是否存在判断成功/失败）
+            const successFiles = processedFiles.filter(item => item.processed_url);
+            const stats = {
+                total: processedFiles.length + errors.length,
+                success: successFiles.length,
+                failed: errors.length + (processedFiles.length - successFiles.length)
+            };
 
             let html = `
                 <div class="result-title">📊 批量处理报告</div>
                 <p>总计：${stats.total} 个 | 成功：<span style="color: #28a745">${stats.success}</span> 个 | 失败：<span style="color: #dc3545">${stats.failed}</span> 个</p>
             `;
 
-            // 显示成功结果
-            <!-- 修改后 -->
-            // 确保正确获取API返回的files数组
-            const processedFiles = result.data?.files || [];
-
-            processedFiles.forEach((item, index) => {
-                // 后端返回的结构中没有success字段，改用是否存在processed_url判断
-                if (item.processed_url) {
-                    html += `
-                        <div class="batch-result-item success">
-                            <div class="result-index">${index + 1}</div>
-                            <strong>${item.filename || 'PDF文件'}</strong>
-                            <div class="pdf-url">${item.processed_url}</div>
-                            <div class="action-buttons">
-                                <button onclick="window.open('${item.processed_url}', '_blank')">
-                                    📄 打开
-                                </button>
-                                <button onclick="copyToClipboard('${item.processed_url}')">
-                                    📋 复制
-                                </button>
-                            </div>
-                            ${item.original_url ? `<div class="batch-info">源文件: ${item.original_url}</div>` : ''}
+            // 显示成功结果（遍历正确的processedFiles数组）
+            successFiles.forEach((item, index) => {
+                html += `
+                    <div class="batch-result-item success">
+                        <div class="result-index">${index + 1}</div>
+                        <strong>${item.filename || 'PDF文件'}</strong>
+                        <div class="pdf-url">${item.processed_url}</div>
+                        <div class="action-buttons">
+                            <button onclick="window.open('${item.processed_url}', '_blank')">
+                                📄 打开
+                            </button>
+                            <button onclick="copyToClipboard('${item.processed_url}')">
+                                📋 复制
+                            </button>
                         </div>
-                    `;
-                }
+                        ${item.original_url ? `<div class="batch-info">源文件: ${item.original_url}</div>` : ''}
+                        ${item.note ? `<div class="batch-info">备注: ${item.note}</div>` : ''}
+                    </div>
+                `;
             });
 
-            // 显示错误结果
+            // 显示错误结果（API返回的errors数组）
             if (errors.length > 0) {
                 html += `
                     <div class="result-title" style="margin-top: 20px; color: #dc3545;">❌ 失败任务</div>
@@ -1241,24 +1243,33 @@
                             <div class="result-index">${index + 1}</div>
                             <strong>失败任务 ${error.index + 1}</strong>
                             <div class="pdf-url">${error.url || '未知URL'}</div>
-                            <p style="color: #dc3545; margin-top: 5px;">错误：${error.error}</p>
+                            <p style="color: #dc3545; margin-top: 5px;">错误：${error.error || '未知错误'}</p>
                         </div>
                     `;
                 });
             }
 
-            // 添加下载全部按钮
-            const successUrls = results.filter(item => item.success).map(item => item.processed_url);
-            if (successUrls.length > 0) {
-                html += `
-                    <div style="text-align: center; margin-top: 20px;">
-                        <a class="download-all" onclick="downloadAllFiles(${JSON.stringify(successUrls)})">
-                            📥 下载全部成功文件 (${successUrls.length}个)
-                        </a>
-                    </div>
-                `;
+            // 显示处理失败但无error的文件（processed_url不存在的情况）
+            const failedFiles = processedFiles.filter(item => !item.processed_url);
+            if (failedFiles.length > 0) {
+                if (errors.length === 0) {
+                    html += `
+                        <div class="result-title" style="margin-top: 20px; color: #dc3545;">❌ 失败任务</div>
+                    `;
+                }
+                failedFiles.forEach((item, index) => {
+                    html += `
+                        <div class="batch-result-item error">
+                            <div class="result-index">${errors.length + index + 1}</div>
+                            <strong>失败任务 ${index + 1}</strong>
+                            <div class="pdf-url">${item.original_url || '未知URL'}</div>
+                            <p style="color: #dc3545; margin-top: 5px;">错误：处理失败，未生成文件链接</p>
+                        </div>
+                    `;
+                });
             }
 
+            // 最终渲染到页面
             container.innerHTML = html;
         }
 
