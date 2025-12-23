@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF表单填充工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        @media (max-width: 992px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-section, .result-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+        }
+
+        .section-title {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            font-size: 1.4em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="file"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            min-height: 120px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            resize: vertical;
+        }
+
+        .mode-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            background: #e9ecef;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .mode-btn:hover {
+            background: #dee2e6;
+        }
+
+        .mode-btn.active:hover {
+            background: #5a67d8;
+        }
+
+        .mode-description {
+            background: #e9ecef;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-section {
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-content {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .result-content.error {
+            border-left-color: #dc3545;
+        }
+
+        .result-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .pdf-url {
+            word-break: break-all;
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .action-buttons button {
+            flex: 1;
+        }
+
+        .example {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .example code {
+            display: block;
+            white-space: pre-wrap;
+            font-family: 'Consolas', 'Monaco', monospace;
+            margin-top: 10px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            color: #0c5460;
+            margin-bottom: 20px;
+        }
+
+        .info i {
+            font-size: 20px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toggle-example {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            padding: 5px;
+            font-size: 14px;
+            text-decoration: underline;
+            float: right;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+            margin-top: 30px;
+        }
+
+        .batch-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 10px 15px;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #856404;
+        }
+
+        .file-upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 6px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-area:hover {
+            background: #f8f9fa;
+            border-color: #5a67d8;
+        }
+
+        .file-upload-area.dragover {
+            background: #e9ecef;
+            border-color: #4c51bf;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .file-list {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .file-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .remove-file {
+            color: #dc3545;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .remove-file:hover {
+            background: #f8d7da;
+        }
+
+        .batch-result-item {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: white;
+        }
+
+        .batch-result-item.success {
+            border-left: 4px solid #28a745;
+        }
+
+        .batch-result-item.error {
+            border-left: 4px solid #dc3545;
+        }
+
+        .result-index {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            margin-right: 10px;
+            font-size: 12px;
+        }
+
+        .download-all {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+
+        .download-all:hover {
+            background: #218838;
+            color: white;
+            text-decoration: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: #667eea;
+            border-radius: 5px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📄 PDF表单填充工具</h1>
+            <p class="subtitle">智能识别PDF表单字段，自动填充数据并生成新PDF（支持中文和批量处理）</p>
+        </header>
+
+        <div class="content">
+            <div class="form-section">
+                <h2 class="section-title">
+                    📝 填写表单参数
+                    <button type="button" class="toggle-example" onclick="toggleExample()">
+                        显示示例
+                    </button>
+                </h2>
+
+                <div class="info">
+                    <span>💡</span>
+                    <div>
+                        <strong>使用说明：</strong>
+                        支持单文件/批量PDF处理，可自定义字体（支持中文），智能保持原格式。
+                    </div>
+                </div>
+
+                <form id="pdfForm">
+                    <!-- PDF输入模式 -->
+                    <div class="form-group">
+                        <label>PDF输入方式</label>
+                        <div class="mode-buttons" id="pdfModeBtns">
+                            <div class="mode-btn active" data-mode="url" onclick="setPdfMode('url')">URL链接</div>
+                            <div class="mode-btn" data-mode="file" onclick="setPdfMode('file')">上传文件</div>
+                            <div class="mode-btn" data-mode="batch" onclick="setPdfMode('batch')">批量URL</div>
+                        </div>
+
+                        <!-- 单URL模式 -->
+                        <div id="urlMode" class="pdf-input-mode">
+                            <input type="text" id="pdfUrl"
+                                   placeholder="https://example.com/template.pdf">
+                            <small>输入PDF文件的网络地址</small>
+                        </div>
+
+                        <!-- 文件上传模式 -->
+                        <div id="fileMode" class="pdf-input-mode" style="display: none;">
+                            <div class="file-upload-area" id="fileUploadArea">
+                                <div class="upload-icon">📎</div>
+                                <div class="upload-text">点击选择PDF文件或拖拽到此区域</div>
+                                <input type="file" id="pdfFile" accept=".pdf" style="display: none;">
+                                <small>支持单个PDF文件，最大16MB</small>
+                            </div>
+                            <div class="file-list" id="fileList"></div>
+                        </div>
+
+                        <!-- 批量URL模式 -->
+                        <div id="batchMode" class="pdf-input-mode" style="display: none;">
+                            <textarea id="pdfUrls"
+                                      placeholder="每行输入一个PDF URL&#10;例如：&#10;https://example.com/doc1.pdf&#10;https://example.com/doc2.pdf"></textarea>
+                            <small>每行一个URL，最多支持20个PDF文件</small>
+                        </div>
+                    </div>
+
+                    <!-- 字体设置 -->
+                    <div class="form-group">
+                        <label for="fontName">字体名称（可选）</label>
+                        <input type="text" id="fontName"
+                               placeholder="例如：simsun（宋体）、simhei（黑体）、Helvetica">
+                        <small>推荐中文字体：simsun, simhei, microsoftyahei</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="fontSize">字体大小（可选）</label>
+                        <input type="number" id="fontSize"
+                               placeholder="12" min="6" max="72" step="0.5">
+                        <small>保持原大小请留空</small>
+                    </div>
+
+                    <!-- 数据处理模式 -->
+                    <div class="form-group">
+                        <label>数据处理模式</label>
+                        <div class="mode-buttons" id="dataModeBtns">
+                            <div class="mode-btn active" data-mode="single" onclick="setDataMode('single')">单份数据</div>
+                            <div class="mode-btn" data-mode="multiple" onclick="setDataMode('multiple')">多份数据</div>
+                            <div class="mode-btn" data-mode="match" onclick="setDataMode('match')">一对一匹配</div>
+                        </div>
+
+                        <div class="mode-description" id="dataModeDesc">
+                            单份数据：所有PDF使用相同的数据
+                        </div>
+                    </div>
+
+                    <!-- 数据输入 -->
+                    <div class="form-group">
+                        <label for="dataInput">
+                            填充数据 (JSON格式) *
+                        </label>
+                        <textarea id="dataInput" required></textarea>
+
+                        <div class="example" id="exampleSection" style="display: none;">
+                            <strong>数据格式说明：</strong>
+                            <div id="exampleContent"></div>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="submitBtn">🚀 生成PDF</button>
+                </form>
+            </div>
+
+            <div class="result-section" id="resultSection">
+                <h2 class="section-title">📊 处理结果</h2>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>正在处理PDF，请稍候...</p>
+                    <div class="progress-bar">
+                        <div class="progress" id="progressBar"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">准备中...</div>
+                </div>
+
+                <div id="resultContent"></div>
+            </div>
+        </div>
+
+        <footer>
+            <p>PDF Form Filler API v2.0 | 支持中文替换和批量PDF处理</p>
+        </footer>
+    </div>
+
+    <script>
+        // 模式状态
+        let pdfMode = 'url'; // 'url', 'file', 'batch'
+        let dataMode = 'single'; // 'single', 'multiple', 'match'
+        let uploadedFiles = [];
+
+        // 示例数据
+        const examples = {
+            single: {
+                json: `{
+  "PO_NO": "PO20240001",
+  "CUSTOMER_NAME": "zhangsan",
+  "DATE": "2024-01-15",
+  "AMOUNT": "10000.00",
+  "DESCRIPTION": "caigou"
+}`,
+                description: "单份数据：所有PDF使用相同的替换数据"
+            },
+            multiple: {
+                json: `[
+  {
+    "PO_NO": "PO20240001",
+    "CUSTOMER_NAME": "zhangsan",
+    "DATE": "2024-01-15",
+    "AMOUNT": "10000.00"
+  },
+  {
+    "PO_NO": "PO20240002",
+    "CUSTOMER_NAME": "lisi",
+    "DATE": "2024-01-16",
+    "AMOUNT": "25000.00"
+  }
+]`,
+                description: "多份数据：生成多个PDF，每份数据对应一个PDF"
+            },
+            match: {
+                json: `[
+  {
+    "订单号": "PO20240001",
+    "客户名称": "张三",
+    "金额": "10000.00"
+  },
+  {
+    "订单号": "PO20240002",
+    "客户名称": "李四",
+    "金额": "25000.00"
+  }
+]`,
+                description: "一对一匹配：每个PDF对应一份数据（数据条数需与PDF数量相同）"
+            }
+        };
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置初始示例
+            document.getElementById('dataInput').value = examples.single.json;
+
+            // 设置文件上传事件
+            setupFileUpload();
+
+            // 设置JSON格式化
+            setupJsonFormatting();
+
+            // 更新数据输入提示
+            updateDataInput();
+        });
+
+        // 设置PDF模式
+        function setPdfMode(mode) {
+            pdfMode = mode;
+
+            // 更新按钮状态
+            document.querySelectorAll('#pdfModeBtns .mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.mode === mode) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // 显示对应的输入区域
+            document.querySelectorAll('.pdf-input-mode').forEach(el => {
+                el.style.display = 'none';
+            });
+
+            document.getElementById(mode + 'Mode').style.display = 'block';
+
+            // 更新数据模式描述
+            updateDataInput();
+        }
+
+        // 设置数据模式
+        function setDataMode(mode) {
+            dataMode = mode;
+
+            // 更新按钮状态
+            document.querySelectorAll('#dataModeBtns .mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.mode === mode) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // 更新数据输入和示例
+            document.getElementById('dataInput').value = examples[mode].json;
+            updateDataInput();
+        }
+
+        // 更新数据输入提示
+        function updateDataInput() {
+            const desc = document.getElementById('dataModeDesc');
+            desc.textContent = examples[dataMode].description;
+
+            // 根据PDF数量更新描述
+            const pdfCount = getPdfCount();
+            if (pdfCount > 1) {
+                if (dataMode === 'single') {
+                    desc.textContent += ` (${pdfCount}个PDF使用相同数据)`;
+                } else if (dataMode === 'match') {
+                    desc.textContent += ` (需要${pdfCount}份数据)`;
+                }
+            }
+        }
+
+        // 获取PDF数量
+        function getPdfCount() {
+            switch (pdfMode) {
+                case 'url':
+                    const url = document.getElementById('pdfUrl').value.trim();
+                    return url ? 1 : 0;
+                case 'file':
+                    return uploadedFiles.length;
+                case 'batch':
+                    const urlsText = document.getElementById('pdfUrls').value.trim();
+                    return urlsText ? urlsText.split('\n').filter(url => url.trim()).length : 0;
+                default:
+                    return 0;
+            }
+        }
+
+        // 设置文件上传
+        function setupFileUpload() {
+            const fileInput = document.getElementById('pdfFile');
+            const uploadArea = document.getElementById('fileUploadArea');
+            const fileList = document.getElementById('fileList');
+
+            // 点击上传区域触发文件选择
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            // 文件选择变化
+            fileInput.addEventListener('change', function(e) {
+                if (this.files.length > 0) {
+                    handleFileSelect(this.files[0]);
+                }
+            });
+
+            // 拖拽上传
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                this.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+
+                if (e.dataTransfer.files.length > 0) {
+                    handleFileSelect(e.dataTransfer.files[0]);
+                }
+            });
+
+            // 处理文件选择
+            function handleFileSelect(file) {
+                if (file.type !== 'application/pdf') {
+                    alert('请选择PDF文件');
+                    return;
+                }
+
+                if (file.size > 16 * 1024 * 1024) {
+                    alert('文件大小不能超过16MB');
+                    return;
+                }
+
+                // 添加到上传文件列表
+                uploadedFiles = [file];
+                updateFileList();
+            }
+
+            // 更新文件列表显示
+            function updateFileList() {
+                fileList.innerHTML = '';
+
+                uploadedFiles.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div class="file-name">${file.name} (${formatFileSize(file.size)})</div>
+                        <div class="remove-file" onclick="removeFile(${index})">✕</div>
+                    `;
+                    fileList.appendChild(fileItem);
+                });
+            }
+
+            // 格式化文件大小
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+        }
+
+        // 移除文件
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            updateFileList();
+        }
+
+        // 切换示例显示
+        function toggleExample() {
+            const exampleSection = document.getElementById('exampleSection');
+            const exampleContent = document.getElementById('exampleContent');
+            const toggleBtn = document.querySelector('.toggle-example');
+
+            if (exampleSection.style.display === 'none') {
+                // 显示当前模式的示例
+                exampleContent.innerHTML = `
+                    <p>${examples[dataMode].description}</p>
+                    <code>${examples[dataMode].json}</code>
+                `;
+                exampleSection.style.display = 'block';
+                toggleBtn.textContent = '隐藏示例';
+            } else {
+                exampleSection.style.display = 'none';
+                toggleBtn.textContent = '显示示例';
+            }
+        }
+
+        // 设置JSON格式化
+        function setupJsonFormatting() {
+            const dataInput = document.getElementById('dataInput');
+
+            dataInput.addEventListener('blur', function() {
+                try {
+                    const parsed = JSON.parse(this.value);
+                    this.value = JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    // 如果JSON无效，保持原样
+                }
+            });
+        }
+
+        // 表单提交
+        document.getElementById('pdfForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const resultSection = document.getElementById('resultSection');
+            const resultContent = document.getElementById('resultContent');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            // 显示加载状态
+            submitBtn.disabled = true;
+            loading.classList.add('show');
+            resultSection.classList.add('show');
+            resultContent.innerHTML = '';
+
+            // 重置进度条
+            progressBar.style.width = '0%';
+            progressText.textContent = '准备中...';
+
+            try {
+                // 准备请求数据
+                let requestData = {};
+                let apiEndpoint = '/api/fill-pdf';
+
+                // 获取PDF URLs
+                let pdfUrls = [];
+                let uploadPromise = null;
+
+                switch (pdfMode) {
+                    case 'url':
+                        const url = document.getElementById('pdfUrl').value.trim();
+                        if (url) pdfUrls = [url];
+                        break;
+
+                    case 'file':
+                        if (uploadedFiles.length === 0) {
+                            throw new Error('请先上传PDF文件');
+                        }
+                        // 上传文件并获取URL
+                        progressText.textContent = '上传文件中...';
+                        uploadPromise = uploadPdfFile(uploadedFiles[0]);
+                        const uploadResult = await uploadPromise;
+                        pdfUrls = [uploadResult.data.url];
+                        progressBar.style.width = '30%';
+                        break;
+
+                    case 'batch':
+                        const urlsText = document.getElementById('pdfUrls').value.trim();
+                        pdfUrls = urlsText.split('\n')
+                            .map(url => url.trim())
+                            .filter(url => url && (url.startsWith('http://') || url.startsWith('https://')));
+                        break;
+                }
+
+                if (pdfUrls.length === 0) {
+                    throw new Error('请输入至少一个有效的PDF URL');
+                }
+
+                // 解析数据
+                progressText.textContent = '解析数据中...';
+                const dataInput = document.getElementById('dataInput').value;
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(dataInput);
+                } catch (e) {
+                    throw new Error('JSON数据格式错误: ' + e.message);
+                }
+
+                // 根据模式构建请求
+                progressText.textContent = '构建请求中...';
+
+                switch (dataMode) {
+                    case 'single':
+                        // 单份数据，多个PDF
+                        if (typeof parsedData !== 'object' || Array.isArray(parsedData)) {
+                            throw new Error('单份数据模式需要JSON对象，而不是数组');
+                        }
+                        requestData = {
+                            urls: pdfUrls,
+                            data: parsedData,
+                            font: document.getElementById('fontName').value.trim() || undefined,
+                            fontsize: document.getElementById('fontSize').value.trim() ?
+                                     parseFloat(document.getElementById('fontSize').value) : undefined
+                        };
+                        progressBar.style.width = '50%';
+                        break;
+
+                    case 'multiple':
+                        // 多份数据，生成多个PDF
+                        if (!Array.isArray(parsedData)) {
+                            throw new Error('多份数据模式需要JSON数组');
+                        }
+                        requestData = {
+                            data: parsedData,
+                            url: pdfUrls[0], // 使用第一个PDF模板
+                            font: document.getElementById('fontName').value.trim() || undefined,
+                            fontsize: document.getElementById('fontSize').value.trim() ?
+                                     parseFloat(document.getElementById('fontSize').value) : undefined
+                        };
+                        progressBar.style.width = '50%';
+                        break;
+
+                    case 'match':
+                        // 一对一匹配
+                        if (!Array.isArray(parsedData)) {
+                            throw new Error('一对一匹配模式需要JSON数组');
+                        }
+                        if (parsedData.length !== pdfUrls.length) {
+                            throw new Error(`数据条数(${parsedData.length})与PDF数量(${pdfUrls.length})不匹配`);
+                        }
+
+                        // 使用批量任务接口
+                        apiEndpoint = '/api/fill-pdf-batch';
+                        const tasks = parsedData.map((dataItem, index) => ({
+                            url: pdfUrls[index],
+                            replacements: dataItem,
+                            font: document.getElementById('fontName').value.trim() || undefined,
+                            fontsize: document.getElementById('fontSize').value.trim() ?
+                                     parseFloat(document.getElementById('fontSize').value) : undefined
+                        }));
+
+                        requestData = {
+                            data: tasks
+                        };
+                        progressBar.style.width = '60%';
+                        break;
+                }
+
+                console.log('发送请求到:', apiEndpoint, requestData);
+                progressText.textContent = '发送请求中...';
+
+                // 发送请求
+                const response = await fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                progressBar.style.width = '80%';
+                progressText.textContent = '处理响应中...';
+
+                const result = await response.json();
+                console.log('收到响应:', result);
+
+                progressBar.style.width = '100%';
+                progressText.textContent = '处理完成！';
+
+                // 显示结果
+                showResult(result);
+
+            } catch (error) {
+                console.error('请求失败:', error);
+                resultContent.className = 'result-content error';
+                resultContent.innerHTML = `
+                    <div class="result-title">⚠️ 请求失败</div>
+                    <p>错误信息：${error.message}</p>
+                    <p>请检查输入数据格式和网络连接。</p>
+                `;
+            } finally {
+                // 恢复按钮状态
+                setTimeout(() => {
+                    submitBtn.disabled = false;
+                    loading.classList.remove('show');
+                    progressBar.style.width = '0%';
+                }, 1000);
+            }
+        });
+
+        // 上传PDF文件
+        async function uploadPdfFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('/api/upload-pdf', {
+                method: 'POST',
+                body: formData
+            });
+
+            return await response.json();
+        }
+
+        // 显示结果
+        function showResult(result) {
+            const resultContent = document.getElementById('resultContent');
+
+            if (result.code === 200) {
+                resultContent.className = 'result-content';
+
+                if (dataMode === 'match' || (pdfMode === 'batch' && pdfMode !== 'single')) {
+                    // 显示批量结果
+                    showBatchResult(result, resultContent);
+                } else {
+                    // 显示单文件结果
+                    showSingleResult(result, resultContent);
+                }
+            } else {
+                resultContent.className = 'result-content error';
+                resultContent.innerHTML = `
+                    <div class="result-title">❌ 处理失败</div>
+                    <p>错误信息：${result.message}</p>
+                    ${result.data && result.data.errors ?
+                        `<div class="batch-info">错误详情：${JSON.stringify(result.data.errors)}</div>` : ''}
+                `;
+            }
+        }
+
+        // 显示单文件结果
+        function showSingleResult(result, container) {
+            const files = result.data.files || [result.data];
+            let html = `
+                <div class="result-title">✅ PDF生成成功</div>
+                <p>成功生成 ${files.length} 个PDF文件</p>
+            `;
+
+            files.forEach((file, index) => {
+                html += `
+                    <div class="batch-result-item success">
+                        <div class="result-index">${index + 1}</div>
+                        <strong>${file.filename || '生成文件'}</strong>
+                        <div class="pdf-url">${file.processed_url}</div>
+                        <div class="action-buttons">
+                            <button onclick="window.open('${file.processed_url}', '_blank')">
+                                📄 打开PDF
+                            </button>
+                            <button onclick="copyToClipboard('${file.processed_url}')">
+                                📋 复制链接
+                            </button>
+                        </div>
+                        ${file.note ? `<div class="batch-info">${file.note}</div>` : ''}
+                    </div>
+                `;
+            });
+
+            // 如果是批量文件，添加下载全部按钮
+            if (files.length > 1) {
+                html += `
+                    <div style="text-align: center; margin-top: 20px;">
+                        <a class="download-all" onclick="downloadAllFiles(${JSON.stringify(files.map(f => f.processed_url))})">
+                            📥 下载全部文件
+                        </a>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // 显示批量结果
+        function showBatchResult(result, container) {
+            const results = result.data.results || result.data.files || [];
+            const errors = result.data.errors || [];
+            const stats = result.data.statistics || { total: results.length, success: 0, failed: errors.length };
+
+            let html = `
+                <div class="result-title">📊 批量处理报告</div>
+                <p>总计：${stats.total} 个 | 成功：<span style="color: #28a745">${stats.success}</span> 个 | 失败：<span style="color: #dc3545">${stats.failed}</span> 个</p>
+            `;
+
+            // 显示成功结果
+            results.forEach((item, index) => {
+                if (item.success) {
+                    html += `
+                        <div class="batch-result-item success">
+                            <div class="result-index">${index + 1}</div>
+                            <strong>${item.filename || 'PDF文件'}</strong>
+                            <div class="pdf-url">${item.processed_url}</div>
+                            <div class="action-buttons">
+                                <button onclick="window.open('${item.processed_url}', '_blank')">
+                                    📄 打开
+                                </button>
+                                <button onclick="copyToClipboard('${item.processed_url}')">
+                                    📋 复制
+                                </button>
+                            </div>
+                            ${item.note ? `<div class="batch-info">${item.note}</div>` : ''}
+                        </div>
+                    `;
+                }
+            });
+
+            // 显示错误结果
+            if (errors.length > 0) {
+                html += `
+                    <div class="result-title" style="margin-top: 20px; color: #dc3545;">❌ 失败任务</div>
+                `;
+
+                errors.forEach((error, index) => {
+                    html += `
+                        <div class="batch-result-item error">
+                            <div class="result-index">${index + 1}</div>
+                            <strong>失败任务 ${error.index + 1}</strong>
+                            <div class="pdf-url">${error.url || '未知URL'}</div>
+                            <p style="color: #dc3545; margin-top: 5px;">错误：${error.error}</p>
+                        </div>
+                    `;
+                });
+            }
+
+            // 添加下载全部按钮
+            const successUrls = results.filter(item => item.success).map(item => item.processed_url);
+            if (successUrls.length > 0) {
+                html += `
+                    <div style="text-align: center; margin-top: 20px;">
+                        <a class="download-all" onclick="downloadAllFiles(${JSON.stringify(successUrls)})">
+                            📥 下载全部成功文件 (${successUrls.length}个)
+                        </a>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // 下载全部文件
+        function downloadAllFiles(urls) {
+            urls.forEach((url, index) => {
+                setTimeout(() => {
+                    window.open(url, '_blank');
+                }, index * 100); // 避免同时打开太多窗口
+            });
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('链接已复制到剪贴板！');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制链接。');
+            });
+        }
+    </script>
+</body>
+</html>
