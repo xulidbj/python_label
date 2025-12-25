@@ -691,7 +691,7 @@ class PDFProcessor:
 
     def detect_form_fields(self, pdf_path: str) -> Dict[str, Any]:
         """
-        检测PDF表单字段
+        检测PDF表单字段，并提取示例文本
         """
         doc = fitz.open(pdf_path)
         fields_info = {"fields": [], "sample_texts": {}, "has_form": False}
@@ -701,7 +701,9 @@ class PDFProcessor:
             if hasattr(doc, 'is_form_pdf') and doc.is_form_pdf:
                 fields_info["has_form"] = True
 
-            # 收集字段
+            # 收集字段和示例值
+            field_values = {}
+
             for page_num in range(len(doc)):
                 page = doc[page_num]
 
@@ -736,20 +738,67 @@ class PDFProcessor:
                             # 获取字段值作为示例
                             if hasattr(widget, 'field_value'):
                                 field_value = widget.field_value
-                                if field_value and len(fields_info["sample_texts"]) < 10:
-                                    fields_info["sample_texts"][field_name] = str(field_value)
+                                if field_value and field_name not in field_values:
+                                    field_values[field_name] = str(field_value)
+                                    if len(fields_info["sample_texts"]) < 10:  # 限制数量
+                                        fields_info["sample_texts"][field_name] = str(field_value)
                     except Exception as e:
                         logger.debug(f"处理widget失败: {e}")
 
-            # 如果没有找到表单字段，尝试从文本中提取可能的字段名
+            # 如果没有找到表单字段，尝试从文本中提取可能的字段名和示例
             if not fields_info["fields"]:
-                text_fields = self._extract_possible_fields_from_text(doc)
-                fields_info["fields"] = text_fields.get("fields", [])
+                text_info = self._extract_fields_and_examples_from_text(doc)
+                fields_info["fields"] = text_info.get("fields", [])
+                fields_info["sample_texts"] = text_info.get("sample_texts", {})
 
             return fields_info
 
         finally:
             doc.close()
+
+    def _extract_fields_and_examples_from_text(self, doc) -> Dict[str, Any]:
+        """
+        从文本中提取可能的字段名和示例值
+        """
+        result = {"fields": [], "sample_texts": {}}
+
+        try:
+            # 常见表单字段模式（字段名: 值）
+            patterns = [
+                (r'([A-Z_]{3,})\s*[:：]?\s*([^\n]+)', 'uppercase_field'),  # 大写字段
+                (r'([\u4e00-\u9fa5]{2,6})\s*[:：]\s*([^\n]+)', 'chinese_field'),  # 中文字段
+                (r'([A-Z][a-zA-Z0-9\s]+\s*[:：])\s*([^\n]+)', 'mixed_field'),  # 混合字段
+            ]
+
+            # 只检查前3页
+            for page_num in range(min(3, len(doc))):
+                page = doc[page_num]
+                text = page.get_text("text")
+
+                for pattern, pattern_type in patterns:
+                    matches = re.findall(pattern, text)
+                    for match in matches:
+                        if isinstance(match, tuple) and len(match) >= 2:
+                            field_name = match[0].strip('：: \n\t')
+                            field_value = match[1].strip()
+
+                            if (len(field_name) >= 2 and
+                                    field_name not in result["fields"] and
+                                    not field_name.isdigit()):
+
+                                result["fields"].append(field_name)
+                                if field_value and len(result["sample_texts"]) < 10:
+                                    result["sample_texts"][field_name] = field_value
+
+                            # 限制数量
+                            if len(result["fields"]) >= 15:
+                                return result
+
+            return result
+
+        except Exception as e:
+            logger.error(f"提取字段和示例失败: {e}")
+            return result
 
     def _extract_possible_fields_from_text(self, doc) -> Dict[str, Any]:
         """从文本中提取可能的字段名"""
