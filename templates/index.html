@@ -518,6 +518,14 @@
             color: #495057;
         }
 
+        .excel-import-title a{
+            color: #ffffff;
+            display: block;
+            text-align: center;
+            background: #0c5460;
+            border-radius: 5px;
+        }
+
         .excel-file-info {
             background: white;
             padding: 12px;
@@ -770,7 +778,10 @@
                 <!-- Excel导入区域 -->
                 <div class="excel-import-section" id="excelImportSection" style="display: none;">
                     <div class="excel-import-header">
-                        <div class="excel-import-title">📊 Excel数据导入</div>
+                        <div class="excel-import-title">
+                            📊 Excel数据导入
+                            <a href="" id="template_url" target="_blank">模板下载</a>
+                        </div>
                         <span id="excelStatus" class="excel-status loading" style="display: none;">正在处理...</span>
                     </div>
 
@@ -1122,6 +1133,7 @@
             try {
                 const submitBtn = document.getElementById('submitBtn');
                 const submitInfo = document.getElementById('submitInfo');
+                const template_url = document.getElementById('template_url');
 
                 // 显示检测状态
                 submitInfo.style.display = 'block';
@@ -1146,7 +1158,7 @@
                     if (dataSource === 'manual') {
                         updateTableWithDetectedFields(detectedFields, sampleTexts);
                     }
-
+                    template_url.href = result.data.excel_template_url;
                     submitInfo.innerHTML = '✅ 已基于PDF字段生成示例数据，请根据需要修改';
                     setTimeout(() => {
                         submitInfo.style.display = 'none';

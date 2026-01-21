@@ -8,6 +8,9 @@ from config import Config
 from utils.file_handler import FileHandler
 from utils.pdf_processor import PDFProcessor
 from utils.oss_uploader import OSSUploader
+import pandas as pd
+from io import BytesIO
+import base64
 
 # 初始化Flask应用
 app = Flask(__name__, template_folder='templates')
@@ -620,6 +623,10 @@ def detect_fields():
             # 检测字段
             fields_info = pdf_processor.detect_form_fields(local_pdf_path)
 
+            # 生成Excel模板
+            excel_url = generate_excel_template(fields_info["fields"])
+            fields_info["excel_template_url"] = excel_url
+
             # 清理临时文件
             file_handler.cleanup_files(local_pdf_path)
 
@@ -644,6 +651,54 @@ def detect_fields():
             "data": None
         }), 500
 
+
+def generate_excel_template(fields):
+    """
+    生成Excel模板文件
+
+    Args:
+        fields: 字段列表
+
+    Returns:
+        str: Excel文件的访问URL
+    """
+    if not fields:
+        fields = ["字段1", "字段2", "字段3"]  # 默认字段
+
+    # 创建DataFrame，第一行为表头，第二行为示例数据
+    fields.insert(0,'pdf_name')
+    df = pd.DataFrame(columns=fields)
+
+    # 添加几行示例数据
+    example_row = {}
+    for field in fields:
+        if "pdf_name" in field.lower():
+            example_row[field] = "文件名"
+        else:
+            example_row[field] = f"示例{field}"
+
+    df.loc[0] = example_row
+
+    # 生成文件名
+    fields_str = "_".join(fields[:3])  # 只取前5个字段作为文件名的一部分，避免过长
+    if len(fields) > 3:
+        fields_str += f"_et_al"  # 如果超过5个字段，添加后缀
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"模板_{fields_str}_{timestamp}.xlsx"
+
+    # 确保模板目录存在
+    template_dir = os.path.join(Config.BASE_DIR, 'static', 'templates')
+    os.makedirs(template_dir, exist_ok=True)
+
+    # 保存Excel文件
+    filepath = os.path.join(template_dir, filename)
+    df.to_excel(filepath, index=False)
+
+    # 生成访问URL
+    base_url = os.environ.get('BASE_URL', 'http://localhost:5000')
+    access_url = f"{base_url}/static/templates/{filename}"
+
+    return access_url
 
 @app.route('/api/get-fonts', methods=['POST'])
 def get_fonts():

@@ -15,8 +15,11 @@ class Config:
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
     OUTPUT_FOLDER = os.path.join(BASE_DIR, 'static', 'outputs')
 
+    # 模板存储配置
+    TEMPLATE_FOLDER = os.path.join(BASE_DIR, 'static', 'templates')
+
     # 确保目录存在
-    for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER]:
+    for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER, TEMPLATE_FOLDER]:
         os.makedirs(folder, exist_ok=True)
 
     # 允许的文件类型
