@@ -903,6 +903,7 @@
         let pdfUrls = []; // 从URL参数获取的PDF列表
         let customer_code = "";
         let order_no = "";
+        let downUrls = [];
         let detectedFields = []; // 检测到的字段列表
         let sampleTexts = {}; // 检测到的示例文本
 
@@ -2257,9 +2258,10 @@
 
             // 如果是批量文件，添加下载全部按钮
             if (files.length > 1) {
+                downUrls = files.map(f => f.processed_url)
                 html += `
                     <div style="text-align: center; margin-top: 20px;">
-                        <a class="download-all" onclick="downloadAllFiles(${JSON.stringify(files.map(f => f.processed_url))})">
+                        <a class="success" onclick="downloadAllFiles()">
                             📥 下载全部文件
                         </a>
                     </div>
@@ -2283,15 +2285,13 @@
                 failed: errors.length + (processedFiles.length - successFiles.length)
             };
 
-            let html = `
-                <div class="result-title">📊 批量处理报告</div>
+            let html = `        <div class="result-title">📊 批量处理报告</div>
                 <p>总计：${stats.total} 个 | 成功：<span style="color: #28a745">${stats.success}</span> 个 | 失败：<span style="color: #dc3545">${stats.failed}</span> 个</p>
             `;
 
             // 显示成功结果（遍历正确的processedFiles数组）
             successFiles.forEach((item, index) => {
-                html += `
-                    <div class="batch-result-item success">
+                html += `            <div class="batch-result-item success">
                         <div class="result-index">${index + 1}</div>
                         <strong>${item.filename || 'PDF文件'}</strong>
                         <div class="pdf-url">${item.processed_url}</div>
@@ -2303,21 +2303,17 @@
                                 📋 复制
                             </button>
                         </div>
-                        ${item.original_url ? `<div class="batch-info">源文件: ${item.original_url}</div>` : ''}
-                        ${item.note ? `<div class="batch-info">备注: ${item.note}</div>` : ''}
-                    </div>
+                        ${item.original_url ? `<div class="batch-info">源文件: ${item.original_url}</div>` : ''}                ${item.note ? `<div class="batch-info">备注: ${item.note}</div>` : ''}            </div>
                 `;
             });
 
             // 显示错误结果（API返回的errors数组）
             if (errors.length > 0) {
-                html += `
-                    <div class="result-title" style="margin-top: 20px; color: #dc3545;">❌ 失败任务</div>
+                html += `            <div class="result-title" style="margin-top: 20px; color: #dc3545;">❌ 失败任务</div>
                 `;
 
                 errors.forEach((error, index) => {
-                    html += `
-                        <div class="batch-result-item error">
+                    html += `                <div class="batch-result-item error">
                             <div class="result-index">${index + 1}</div>
                             <strong>失败任务 ${error.index + 1}</strong>
                             <div class="pdf-url">${error.url || '未知URL'}</div>
@@ -2331,13 +2327,11 @@
             const failedFiles = processedFiles.filter(item => !item.processed_url);
             if (failedFiles.length > 0) {
                 if (errors.length === 0) {
-                    html += `
-                        <div class="result-title" style="margin-top: 20px; color: #dc3545;">❌ 失败任务</div>
+                    html += `                <div class="result-title" style="margin-top: 20px; color: #dc3545;">❌ 失败任务</div>
                     `;
                 }
                 failedFiles.forEach((item, index) => {
-                    html += `
-                        <div class="batch-result-item error">
+                    html += `                <div class="batch-result-item error">
                             <div class="result-index">${errors.length + index + 1}</div>
                             <strong>失败任务 ${index + 1}</strong>
                             <div class="pdf-url">${item.original_url || '未知URL'}</div>
@@ -2347,18 +2341,70 @@
                 });
             }
 
+            // 添加批量下载按钮
+            if (successFiles.length > 1) {
+                downUrls = successFiles.map(f => f.processed_url)
+                html += `        <div style="text-align: center; margin-top: 20px;">
+                        <button onclick="downloadAllFiles()" class="success">
+                            📦 下载全部文件 (ZIP)
+                        </button>
+                    </div>
+                `;
+            }
+
             // 最终渲染到页面
             container.innerHTML = html;
         }
 
-        // 下载全部文件
-        function downloadAllFiles(urls) {
-            urls.forEach((url, index) => {
-                setTimeout(() => {
-                    window.open(url, '_blank');
-                }, index * 100); // 避免同时打开太多窗口
-            });
-        }
+        async function downloadAllFiles() {
+            // 检查是否有文件URL
+            if (!downUrls || downUrls.length === 0) {
+                alert('没有可下载的文件');
+                return;
+            }
+
+            try {
+                // 创建临时iframe用于下载
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+
+                // 创建表单数据
+                const formData = new FormData();
+                formData.append('urls', JSON.stringify(downUrls));
+                formData.append('filename', `batch_files_${new Date().getTime()}.zip`);
+
+                // 发送POST请求到后端
+                const response = await fetch('/api/download-zip', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // 获取blob数据
+                const blob = await response.blob();
+
+                // 创建下载链接
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `batch_files_${new Date().getTime()}.zip`;
+
+                document.body.appendChild(a);
+                a.click();
+
+                // 清理
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('下载失败:', error);
+                alert('下载失败，请重试');
+            }
+            }
+
 
         // 复制到剪贴板
         function copyToClipboard(text) {

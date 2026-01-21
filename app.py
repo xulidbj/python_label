@@ -1,6 +1,9 @@
+import json
+from urllib.parse import urlparse
+
+import requests
 from flask import Flask, request, jsonify, render_template
 import os
-import json
 import fitz
 from datetime import datetime
 import concurrent.futures
@@ -9,8 +12,9 @@ from utils.file_handler import FileHandler
 from utils.pdf_processor import PDFProcessor
 from utils.oss_uploader import OSSUploader
 import pandas as pd
-from io import BytesIO
-import base64
+import zipfile
+from flask import send_file
+import tempfile
 
 # 初始化Flask应用
 app = Flask(__name__, template_folder='templates')
@@ -27,6 +31,78 @@ def index():
     """首页 - 显示前端界面"""
     return render_template('index.html')
 
+
+@app.route('/api/download-zip', methods=['POST'])
+def download_zip():
+    """
+    批量下载PDF文件到ZIP压缩包
+
+    请求参数:
+    {
+        "urls": ["http://example.com/file1.pdf", "http://example.com/file2.pdf"],
+        "filename": "batch_files.zip"
+    }
+    """
+    try:
+        # 检查是否是JSON请求
+        if request.is_json:
+            request_data = request.get_json()
+        else:
+            # 如果不是JSON，尝试从表单数据获取
+            request_data = {}
+            if 'urls' in request.form:
+                request_data['urls'] = json.loads(request.form['urls'])
+            if 'filename' in request.form:
+                request_data['filename'] = request.form['filename']
+
+        if 'urls' not in request_data or not isinstance(request_data['urls'], list):
+            return jsonify({
+                "code": 400,
+                "message": "缺少urls参数或格式错误",
+                "data": None
+            }), 400
+
+        urls = request_data['urls']
+        filename = request_data.get('filename', 'batch_files.zip')
+
+        # 创建临时ZIP文件
+        temp_dir = tempfile.mkdtemp()
+        zip_path = os.path.join(temp_dir, filename)
+
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for i, url in enumerate(urls):
+                try:
+                    # 下载PDF文件
+                    response = requests.get(url, timeout=30)
+                    response.raise_for_status()
+
+                    # 生成ZIP内的文件名
+                    parsed_url = urlparse(url)
+                    original_filename = os.path.basename(parsed_url.path)
+                    if not original_filename or '.' not in original_filename:
+                        original_filename = f"file_{i + 1}.pdf"
+
+                    # 添加到ZIP
+                    zipf.writestr(original_filename, response.content)
+                except Exception as e:
+                    # 如果某个文件下载失败，跳过并记录
+                    print(f"下载文件失败 {url}: {str(e)}")
+                    continue
+
+        # 返回ZIP文件
+        return send_file(
+            zip_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/zip'
+        )
+
+    except Exception as e:
+        return jsonify({
+            "code": 500,
+            "message": f"创建ZIP失败: {str(e)}",
+            "data": None
+        }), 500
 
 @app.route('/api/fill-pdf', methods=['POST'])
 def fill_pdf():
