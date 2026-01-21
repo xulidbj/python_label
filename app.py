@@ -91,6 +91,8 @@ def fill_pdf():
         data = request_data['data']
         custom_font = request_data.get('font')
         custom_fontsize = request_data.get('fontsize')
+        customer_code = request_data.get('customer_code')
+        order_no = request_data.get('order_no')
 
         # 获取PDF URL或URLs
         pdf_urls = []
@@ -138,7 +140,7 @@ def fill_pdf():
         batch_id = f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         # 限制最大处理数量
-        max_files = 20  # 可以调整
+        max_files = 1000  # 可以调整
         if len(pdf_urls) * len(data_list) > max_files:
             return jsonify({
                 "code": 400,
@@ -171,7 +173,9 @@ def fill_pdf():
                         data_index,
                         file_handler,
                         pdf_processor,
-                        oss_uploader
+                        oss_uploader,
+                        customer_code,
+                        order_no
                     )
                     future_to_pdf[future] = {
                         'url': pdf_url,
@@ -229,7 +233,7 @@ def fill_pdf():
 
 
 def process_single_pdf_task(pdf_url, data_item, custom_font, custom_fontsize, pdf_index, data_index, file_handler,
-                            pdf_processor, oss_uploader):
+                            pdf_processor, oss_uploader, customer_code, order_no):
     """
     处理单个PDF文件任务
 
@@ -270,7 +274,7 @@ def process_single_pdf_task(pdf_url, data_item, custom_font, custom_fontsize, pd
 
         # 上传到OSS
         try:
-            oss_url = oss_uploader.upload_to_oss(output_path)
+            oss_url = oss_uploader.upload_to_oss(output_path, customer_code, order_no)
 
             # 生成文件名
             filename = f"processed_{pdf_index + 1}_{data_index + 1}_{os.path.basename(output_path)}"
@@ -384,7 +388,7 @@ def fill_pdf_batch():
         tasks = request_data['data']
 
         # 限制最大处理数量
-        max_tasks = 50
+        max_tasks = 1000
         if len(tasks) > max_tasks:
             return jsonify({
                 "code": 400,
@@ -419,7 +423,9 @@ def fill_pdf_batch():
 
                 # 上传到OSS
                 try:
-                    oss_url = oss_uploader.upload_to_oss(output_path)
+                    customer_code = task.get('customer_code')
+                    order_no = task.get('order_no')
+                    oss_url = oss_uploader.upload_to_oss(output_path, customer_code, order_no)
 
                     results.append({
                         'original_url': task['url'],

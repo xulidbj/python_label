@@ -56,10 +56,13 @@ class Config:
     BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
 
     @staticmethod
-    def get_output_filename():
+    def get_output_filename(pdf_name):
         """生成唯一的输出文件名"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        return f"replaced_{timestamp}.pdf"
+        if pdf_name:
+            return f"{pdf_name}.pdf"
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            return f"replaced_{timestamp}.pdf"
 
     @staticmethod
     def get_upload_filename():

@@ -127,8 +127,10 @@ class PDFProcessor:
         logger.info(f"开始处理PDF: {pdf_path}")
         logger.info(f"替换内容: {replacements}")
 
+        pdf_name = replacements.get('pdf_name','')
+
         # 生成输出文件路径
-        output_filename = Config.get_output_filename()
+        output_filename = Config.get_output_filename(pdf_name)
         output_pdf = os.path.join(Config.OUTPUT_FOLDER, output_filename)
 
         # 使用改进的文本替换方法

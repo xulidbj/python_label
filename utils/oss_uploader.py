@@ -33,7 +33,7 @@ class OSSUploader:
             print(f"OSS客户端初始化失败: {e}")
             self.enabled = False
 
-    def upload_to_oss(self, filepath: str) -> str:
+    def upload_to_oss(self, filepath: str, customer_code: str, order_no: str) -> str:
         """
         上传文件到OSS
 
@@ -42,6 +42,9 @@ class OSSUploader:
 
         Returns:
             str: OSS访问URL
+            :param filepath:
+            :param order_no:
+            :param customer_code:
         """
         if not self.enabled:
             # 返回本地URL
@@ -53,7 +56,7 @@ class OSSUploader:
             # 生成OSS对象名
             timestamp = datetime.now().strftime("%Y/%m/%d")
             filename = os.path.basename(filepath)
-            object_name = f"{self.prefix}{timestamp}/{filename}"
+            object_name = f"{self.prefix}{customer_code}/{order_no}/{filename}"
 
             # 上传文件
             result = self.bucket.put_object_from_file(object_name, filepath)

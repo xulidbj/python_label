@@ -23,7 +23,6 @@
         }
 
         .container {
-            max-width: 1400px;
             margin: 0 auto;
             background: white;
             border-radius: 10px;
@@ -455,7 +454,7 @@
         .data-table th, .data-table td {
             border: 1px solid #e1e5e9;
             padding: 8px 12px;
-            min-width: 120px;
+            min-width: 100px;
         }
 
         .data-table th {
@@ -857,12 +856,6 @@
                             </tbody>
                         </table>
                     </div>
-
-                    <!-- JSON预览区域 -->
-                    <div class="batch-info" style="margin-top: 10px;">
-                        <strong>数据预览（JSON格式）：</strong>
-                    </div>
-                    <div class="json-preview" id="jsonPreview"></div>
                 </div>
 
                 <button type="button" id="submitBtn" disabled onclick="submitForm()">🚀 生成PDF</button>
@@ -897,6 +890,8 @@
         let dataMode = 'single'; // 'single', 'multiple', 'match'
         let dataSource = 'manual'; // 'manual', 'excel'
         let pdfUrls = []; // 从URL参数获取的PDF列表
+        let customer_code = "";
+        let order_no = "";
         let detectedFields = []; // 检测到的字段列表
         let sampleTexts = {}; // 检测到的示例文本
 
@@ -1062,6 +1057,8 @@
         function loadPdfUrlsFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             let pdfUrlParam = urlParams.get('pdf_url');
+            customer_code = urlParams.get('customer_code');
+            order_no = urlParams.get('order_no');
 
             if (!pdfUrlParam) {
                 showPdfError('URL参数中未找到pdf_url参数。请确保URL格式为：?pdf_url=["URL1","URL2"]');
@@ -1182,7 +1179,7 @@
             tbody.innerHTML = '';
 
             // 限制字段数量（避免表格太宽）
-            const displayFields = fields.slice(0, 6); // 最多显示6个字段
+            const displayFields = fields.slice(0, 1000); // 最多显示6个字段
 
             // 创建表头
             const headerRow = document.createElement('tr');
@@ -1787,7 +1784,7 @@
             } else {
                 // 多份数据或一对一匹配模式：使用所有数据行
                 // 限制行数，避免表格过长
-                const maxRows = 20;
+                const maxRows = 1000;
                 const displayRows = dataArray.slice(0, maxRows);
 
                 displayRows.forEach(rowData => {
@@ -2052,12 +2049,11 @@
 
         // 更新JSON预览
         function updateJsonPreview() {
-            const jsonPreview = document.getElementById('jsonPreview');
             const data = getTableDataAsJson();
             if (data) {
-                jsonPreview.textContent = JSON.stringify(data, null, 2);
+                console.log("打印数据",data)
             } else {
-                jsonPreview.textContent = '请输入数据';
+
             }
         }
 
@@ -2108,6 +2104,8 @@
                         requestData = {
                             urls: pdfUrls,
                             data: parsedData,
+                            customer_code: customer_code,
+                            order_no: order_no
                         };
                         progressBar.style.width = '50%';
                         break;
@@ -2120,6 +2118,8 @@
                         requestData = {
                             data: parsedData,
                             url: pdfUrls[0], // 使用第一个PDF模板
+                            customer_code: customer_code,
+                            order_no: order_no
                         };
                         progressBar.style.width = '50%';
                         break;
@@ -2138,6 +2138,8 @@
                         const tasks = parsedData.map((dataItem, index) => ({
                             url: pdfUrls[index],
                             replacements: dataItem,
+                            customer_code: customer_code,
+                            order_no: order_no
                         }));
 
                         requestData = {
