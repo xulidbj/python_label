@@ -11,7 +11,8 @@ from config import Config
 from utils.file_handler import FileHandler
 from utils.pdf_processor import PDFProcessor
 from utils.oss_uploader import OSSUploader
-import pandas as pd
+import openpyxl
+from openpyxl.styles import Font, Alignment
 import zipfile
 from flask import send_file
 import tempfile
@@ -730,7 +731,7 @@ def detect_fields():
 
 def generate_excel_template(fields):
     """
-    生成Excel模板文件
+    生成Excel模板文件（使用openpyxl替代pandas）
 
     Args:
         fields: 字段列表
@@ -741,24 +742,51 @@ def generate_excel_template(fields):
     if not fields:
         fields = ["字段1", "字段2", "字段3"]  # 默认字段
 
-    # 创建DataFrame，第一行为表头，第二行为示例数据
-    fields.insert(0,'pdf_name')
-    df = pd.DataFrame(columns=fields)
+    # 创建新的工作簿和工作表
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "PDF表单填充模板"
 
-    # 添加几行示例数据
-    example_row = {}
-    for field in fields:
+    # 插入pdf_name字段到最前面
+    fields_with_pdf_name = ["pdf_name"] + fields
+
+    # 写入表头
+    for col, field in enumerate(fields_with_pdf_name, start=1):
+        cell = ws.cell(row=1, column=col, value=field)
+        # 设置表头样式
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # 添加示例数据行
+    example_row = []
+    for field in fields_with_pdf_name:
         if "pdf_name" in field.lower():
-            example_row[field] = "文件名"
+            example_row.append("文件名")
         else:
-            example_row[field] = f"示例{field}"
+            example_row.append(f"示例{field}")
 
-    df.loc[0] = example_row
+    # 写入示例数据
+    for col, value in enumerate(example_row, start=1):
+        cell = ws.cell(row=2, column=col, value=value)
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    # 自动调整列宽
+    for column in ws.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)  # 最大宽度限制为50
+        ws.column_dimensions[column_letter].width = adjusted_width
 
     # 生成文件名
-    fields_str = "_".join(fields[:3])  # 只取前5个字段作为文件名的一部分，避免过长
-    if len(fields) > 3:
-        fields_str += f"_et_al"  # 如果超过5个字段，添加后缀
+    fields_str = "_".join(fields_with_pdf_name[:3])  # 只取前3个字段作为文件名的一部分，避免过长
+    if len(fields_with_pdf_name) > 3:
+        fields_str += f"_et_al"  # 如果超过3个字段，添加后缀
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"模板_{fields_str}_{timestamp}.xlsx"
 
@@ -768,7 +796,7 @@ def generate_excel_template(fields):
 
     # 保存Excel文件
     filepath = os.path.join(template_dir, filename)
-    df.to_excel(filepath, index=False)
+    wb.save(filepath)
 
     # 生成访问URL
     base_url = os.environ.get('BASE_URL', 'http://localhost:5000')
